@@ -194,7 +194,8 @@ static irq_handler_t handle_rx_start(unsigned int irq, void* device, struct pt_r
 static enum hrtimer_restart handle_tx(struct hrtimer* timer)
 {
   ktime_t current_time = ktime_get();
-  static unsigned char character = 0;
+  static unsigned char mode = 0;
+  static unsigned char data = 0;
   static int bit_index = -1;
   enum hrtimer_restart result = HRTIMER_NORESTART;
   bool must_restart_timer = false;
@@ -202,24 +203,35 @@ static enum hrtimer_restart handle_tx(struct hrtimer* timer)
   // Start bit.
   if (bit_index == -1)
   {
-    if (dequeue_character(&queue_tx, &character))
-    {
-      gpio_set_value(gpio_tx, 0);
-      bit_index++;
-      must_restart_timer = true;
+    if (get_queue_size(&queue_tx) > 1) {
+        dequeue_character(&queue_tx, &mode)
+        if (dequeue_character(&queue_tx, &data))
+        {
+          gpio_set_value(gpio_tx, 0);
+          bit_index++;
+          must_restart_timer = true;
+        }
     }
   }
   
   // Data bits.
   else if (0 <= bit_index && bit_index < 8)
   {
-    gpio_set_value(gpio_tx, 1 & (character >> bit_index));
+    gpio_set_value(gpio_tx, 1 & (data >> bit_index));
+    bit_index++;
+    must_restart_timer = true;
+  }
+
+  // Mode bit.
+  else if (bit_index == 8)
+  {
+    gpio_set_value(gpio_tx, 1 & mode);
     bit_index++;
     must_restart_timer = true;
   }
   
   // Stop bit.
-  else if (bit_index == 8)
+  else if (bit_index == 9)
   {
     gpio_set_value(gpio_tx, 1);
     character = 0;
@@ -257,15 +269,15 @@ static enum hrtimer_restart handle_rx(struct hrtimer* timer)
   }
   
   // Data bits.
-  else if (0 <= rx_bit_index && rx_bit_index < 8)
+  else if (0 <= rx_bit_index && rx_bit_index < 9)
   {
     if (bit_value == 0)
     {
-      character &= 0xfeff;
+      character &= 0x1fdff; //0xfeff;
     }
     else
     {
-      character |= 0x0100;
+      character |= 0x0200; //0x0100;
     }
     
     rx_bit_index++;
@@ -274,7 +286,7 @@ static enum hrtimer_restart handle_rx(struct hrtimer* timer)
   }
   
   // Stop bit.
-  else if (rx_bit_index == 8)
+  else if (rx_bit_index == 9)
   {
     receive_character(character);
     rx_bit_index = -1;
@@ -295,19 +307,23 @@ static enum hrtimer_restart handle_rx(struct hrtimer* timer)
  * and then flushes (flip) it.
  * @param character given character
  */
-void receive_character(unsigned char character)
+void receive_character(unsigned int character)
 {
+    unsigned char mode = character >> 8;
+    unsigned char data = character;
   mutex_lock(&current_tty_mutex);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
   if (current_tty != NULL && current_tty->port != NULL)
   {
-    tty_insert_flip_char(current_tty->port, character, TTY_NORMAL);
+    tty_insert_flip_char(current_tty->port, mode, TTY_NORMAL);
+    tty_insert_flip_char(current_tty->port, data, TTY_NORMAL);
     tty_flip_buffer_push(current_tty->port);
   }
 #else
   if (tty != NULL)
   {
-    tty_insert_flip_char(current_tty, character, TTY_NORMAL);
+    tty_insert_flip_char(current_tty, mode, TTY_NORMAL);
+    tty_insert_flip_char(current_tty, data, TTY_NORMAL);
     tty_flip_buffer_push(tty);
   }
 #endif

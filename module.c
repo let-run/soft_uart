@@ -112,16 +112,16 @@ static int __init soft_uart_init(void)
   // Initializes the driver.
   soft_uart_driver->owner                 = THIS_MODULE;
   soft_uart_driver->driver_name           = "soft_uart";
-  soft_uart_driver->name                  = "ttySOFT";
+  soft_uart_driver->name                  = "ttyPEACH";
   soft_uart_driver->major                 = SOFT_UART_MAJOR;
   soft_uart_driver->minor_start           = 0;
   soft_uart_driver->flags                 = TTY_DRIVER_REAL_RAW;
   soft_uart_driver->type                  = TTY_DRIVER_TYPE_SERIAL;
   soft_uart_driver->subtype               = SERIAL_TYPE_NORMAL;
   soft_uart_driver->init_termios          = tty_std_termios;
-  soft_uart_driver->init_termios.c_ispeed = 4800;
-  soft_uart_driver->init_termios.c_ospeed = 4800;
-  soft_uart_driver->init_termios.c_cflag  = B4800 | CREAD | CS8 | CLOCAL;
+  soft_uart_driver->init_termios.c_ispeed = 9600;
+  soft_uart_driver->init_termios.c_ospeed = 9600;
+  soft_uart_driver->init_termios.c_cflag  = B9600 | CREAD | CS8 | CLOCAL;
 
   // Sets the callbacks for the driver.
   tty_set_operations(soft_uart_driver, &soft_uart_operations);
