@@ -13,7 +13,7 @@
 static irq_handler_t handle_rx_start(unsigned int irq, void* device, struct pt_regs* registers);
 static enum hrtimer_restart handle_tx(struct hrtimer* timer);
 static enum hrtimer_restart handle_rx(struct hrtimer* timer);
-static void receive_character(unsigned char character);
+static void receive_character(unsigned int character);
 
 static struct queue queue_tx;
 static struct tty_struct* current_tty = NULL;
@@ -204,7 +204,7 @@ static enum hrtimer_restart handle_tx(struct hrtimer* timer)
   if (bit_index == -1)
   {
     if (get_queue_size(&queue_tx) > 1) {
-        dequeue_character(&queue_tx, &mode)
+        dequeue_character(&queue_tx, &mode);
         if (dequeue_character(&queue_tx, &data))
         {
           gpio_set_value(gpio_tx, 0);
@@ -234,7 +234,8 @@ static enum hrtimer_restart handle_tx(struct hrtimer* timer)
   else if (bit_index == 9)
   {
     gpio_set_value(gpio_tx, 1);
-    character = 0;
+    mode = 0;
+    data = 0;
     bit_index = -1;
     must_restart_timer = get_queue_size(&queue_tx) > 0;
   }
